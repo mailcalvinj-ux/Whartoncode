@@ -1,13 +1,11 @@
 import pandas as pd
 import numpy as np
 import yfinance as yf
-import requests
 
-FINNHUB_API_KEY = "YOUR_API_KEY_HERE"  # <-- PUT YOUR KEY HERE
-DEFAULT_ESG_SCORE = 50                # <-- Set your fallback if API fails
+DEFAULT_ESG_SCORE = 50   # fallback value if ESG not provided
 
 # --------------------------
-# Scoring functions (same as yours)
+# Scoring functions
 # --------------------------
 def score_pe(pe):
     if pe < 10: return 1.0
@@ -35,30 +33,19 @@ def score_dividend(dy):
     else: return 0.3
 
 # --------------------------
-# Pull ESG data from Finnhub
+# Manual ESG input
 # --------------------------
-def get_esg_score_finnhub(ticker):
-    url = f"https://finnhub.io/api/v1/esg?symbol={ticker}&token={FINNHUB_API_KEY}"
-    
-    try:
-        r = requests.get(url)
-        data = r.json()
-        esg = data.get("totalESGScore", None)
-
-        # Fallback if missing
-        if esg is None:
-            return DEFAULT_ESG_SCORE
-
-        return esg
-    
-    except:
-        return DEFAULT_ESG_SCORE
-
+def get_manual_esg_score(ticker, esg_dict):
+    """Return ESG score from user dictionary, fallback to default."""
+    return esg_dict.get(ticker.upper(), DEFAULT_ESG_SCORE)
 
 # --------------------------
 # Fetch stock fundamentals
 # --------------------------
-def get_stock_data(tickers):
+def get_stock_data(tickers, esg_dict=None):
+    if esg_dict is None:
+        esg_dict = {}
+
     data = []
     
     for ticker in tickers:
@@ -70,10 +57,10 @@ def get_stock_data(tickers):
         volatility     = info.get("beta", np.nan)
         dividend_yield = info.get("dividendYield", np.nan)
 
-        # NEW → get ESG from Finnhub
-        esg_score = get_esg_score_finnhub(ticker)
+        # Replace with manual ESG lookup
+        esg_score = get_manual_esg_score(ticker, esg_dict)
 
-        # If any metric is missing → fallback default
+        # Fallback defaults
         if np.isnan(pe_ratio): pe_ratio = 25
         if np.isnan(roe): roe = 0.10
         if np.isnan(volatility): volatility = 0.25
@@ -128,7 +115,16 @@ def sir_jvp_absolute(df, weights=None):
 # Example
 # --------------------------
 tickers = ["AAPL", "MSFT", "GOOG", "AMZN"]
-stock_data = get_stock_data(tickers)
+
+# MANUAL ESG INPUT 
+manual_esg_scores = {
+    "AAPL": 70,
+    "MSFT": 85,
+    "GOOG": 65,
+    "AMZN": 55
+}
+
+stock_data = get_stock_data(tickers, manual_esg_scores)
 result_df = sir_jvp_absolute(stock_data)
 
 print(result_df[["ticker", "sir_jvp_score"]])
