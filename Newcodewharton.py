@@ -1,0 +1,134 @@
+import pandas as pd
+import numpy as np
+import yfinance as yf
+import requests
+
+FINNHUB_API_KEY = "YOUR_API_KEY_HERE"  # <-- PUT YOUR KEY HERE
+DEFAULT_ESG_SCORE = 50                # <-- Set your fallback if API fails
+
+# --------------------------
+# Scoring functions (same as yours)
+# --------------------------
+def score_pe(pe):
+    if pe < 10: return 1.0
+    elif pe < 20: return 0.8
+    elif pe < 40: return 0.5
+    else: return 0.2
+
+def score_roe(roe):
+    if roe > 0.30: return 1.0
+    elif roe > 0.20: return 0.8
+    elif roe > 0.10: return 0.6
+    elif roe > 0.05: return 0.4
+    else: return 0.2
+
+def score_volatility(vol):
+    if vol < 0.15: return 1.0
+    elif vol < 0.25: return 0.8
+    elif vol < 0.35: return 0.5
+    else: return 0.3
+
+def score_dividend(dy):
+    if dy > 0.04: return 1.0
+    elif dy > 0.02: return 0.8
+    elif dy > 0.01: return 0.5
+    else: return 0.3
+
+# --------------------------
+# Pull ESG data from Finnhub
+# --------------------------
+def get_esg_score_finnhub(ticker):
+    url = f"https://finnhub.io/api/v1/esg?symbol={ticker}&token={FINNHUB_API_KEY}"
+    
+    try:
+        r = requests.get(url)
+        data = r.json()
+        esg = data.get("totalESGScore", None)
+
+        # Fallback if missing
+        if esg is None:
+            return DEFAULT_ESG_SCORE
+
+        return esg
+    
+    except:
+        return DEFAULT_ESG_SCORE
+
+
+# --------------------------
+# Fetch stock fundamentals
+# --------------------------
+def get_stock_data(tickers):
+    data = []
+    
+    for ticker in tickers:
+        stock = yf.Ticker(ticker)
+        info = stock.info
+
+        pe_ratio       = info.get("trailingPE", np.nan)
+        roe            = info.get("returnOnEquity", np.nan)
+        volatility     = info.get("beta", np.nan)
+        dividend_yield = info.get("dividendYield", np.nan)
+
+        # NEW → get ESG from Finnhub
+        esg_score = get_esg_score_finnhub(ticker)
+
+        # If any metric is missing → fallback default
+        if np.isnan(pe_ratio): pe_ratio = 25
+        if np.isnan(roe): roe = 0.10
+        if np.isnan(volatility): volatility = 0.25
+        if np.isnan(dividend_yield): dividend_yield = 0.01
+
+        data.append({
+            "ticker": ticker,
+            "pe_ratio": pe_ratio,
+            "roe": roe,
+            "volatility": volatility,
+            "dividend_yield": dividend_yield,
+            "esg_score": esg_score
+        })
+    
+    return pd.DataFrame(data)
+
+# --------------------------
+# Compute SIR-JVP score
+# --------------------------
+def sir_jvp_absolute(df, weights=None):
+    if weights is None:
+        weights = {
+            "pe": 0.2,
+            "roe": 0.25,
+            "volatility": 0.25,
+            "dividend": 0.15,
+            "esg": 0.15
+        }
+
+    scores = []
+    for _, row in df.iterrows():
+        pe_score = score_pe(row["pe_ratio"])
+        roe_score = score_roe(row["roe"])
+        vol_score = score_volatility(row["volatility"])
+        div_score = score_dividend(row["dividend_yield"])
+        esg_score = row["esg_score"] / 100
+
+        total = (
+            weights["pe"] * pe_score +
+            weights["roe"] * roe_score +
+            weights["volatility"] * vol_score +
+            weights["dividend"] * div_score +
+            weights["esg"] * esg_score
+        )
+
+        scores.append(total)
+
+    df["sir_jvp_score"] = scores
+    return df.sort_values("sir_jvp_score", ascending=False)
+
+# --------------------------
+# Example
+# --------------------------
+tickers = ["AAPL", "MSFT", "GOOG", "AMZN"]
+stock_data = get_stock_data(tickers)
+result_df = sir_jvp_absolute(stock_data)
+
+print(result_df[["ticker", "sir_jvp_score"]])
