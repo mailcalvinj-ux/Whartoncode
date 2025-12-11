@@ -2,7 +2,11 @@ import pandas as pd
 import numpy as np
 import yfinance as yf
 
-# Define scoring functions as before
+DEFAULT_ESG_SCORE = 50   # fallback value if ESG not provided
+
+# --------------------------
+# Scoring functions
+# --------------------------
 def score_pe(pe):
     if pe < 10: return 1.0
     elif pe < 20: return 0.8
@@ -28,7 +32,55 @@ def score_dividend(dy):
     elif dy > 0.01: return 0.5
     else: return 0.3
 
-# Main function to compute SIR JVP score
+# --------------------------
+# Manual ESG input
+# --------------------------
+def get_manual_esg_score(ticker, esg_dict):
+    """Return ESG score from user dictionary, fallback to default."""
+    value = esg_dict.get(ticker.upper(), None)
+    return DEFAULT_ESG_SCORE if value is None else value
+
+# --------------------------
+# Fetch stock fundamentals
+# --------------------------
+def get_stock_data(tickers, esg_dict=None):
+    if esg_dict is None:
+        esg_dict = {}
+
+    data = []
+    
+    for ticker in tickers:
+        stock = yf.Ticker(ticker)
+        info = stock.info
+
+        pe_ratio       = info.get("trailingPE", np.nan)
+        roe            = info.get("returnOnEquity", np.nan)
+        volatility     = info.get("beta", np.nan)
+        dividend_yield = info.get("dividendYield", np.nan)
+
+        # Replace with manual ESG lookup
+        esg_score = get_manual_esg_score(ticker, esg_dict)
+
+        # Fallback defaults
+        if np.isnan(pe_ratio): pe_ratio = 25
+        if np.isnan(roe): roe = 0.10
+        if np.isnan(volatility): volatility = 0.25
+        if np.isnan(dividend_yield): dividend_yield = 0.01
+
+        data.append({
+            "ticker": ticker,
+            "pe_ratio": pe_ratio,
+            "roe": roe,
+            "volatility": volatility,
+            "dividend_yield": dividend_yield,
+            "esg_score": esg_score
+        })
+    
+    return pd.DataFrame(data)
+
+# --------------------------
+# Compute SIR-JVP score
+# --------------------------
 def sir_jvp_absolute(df, weights=None):
     if weights is None:
         weights = {
@@ -60,40 +112,46 @@ def sir_jvp_absolute(df, weights=None):
     df["sir_jvp_score"] = scores
     return df.sort_values("sir_jvp_score", ascending=False)
 
-# Function to get real-time stock data
-def get_stock_data(tickers):
-    data = []
-    
-    for ticker in tickers:
-        stock = yf.Ticker(ticker)
-        info = stock.info
-        
-        # Collect relevant data points (can vary by stock)
-        try:
-            pe_ratio = info.get("trailingPE", np.nan)
-            roe = info.get("returnOnEquity", np.nan)
-            volatility = info.get("beta", np.nan)  # Beta as a measure of volatility
-            dividend_yield = info.get("dividendYield", np.nan)
-            esg_score = info.get("esgScores", {}).get("totalEsg", np.nan)
-        except:
-            # If some data points are missing, set to NaN
-            pe_ratio = roe = volatility = dividend_yield = esg_score = np.nan
-        
-        data.append({
-            "ticker": ticker,
-            "pe_ratio": pe_ratio,
-            "roe": roe,
-            "volatility": volatility,
-            "dividend_yield": dividend_yield,
-            "esg_score": esg_score
-        })
-    
-    return pd.DataFrame(data)
+# --------------------------
+# TICKERS + MANUAL ESG SCORES (Inserted from your images)
+# --------------------------
+tickers = [
+    "XOM", "BP", "SHEL", "BA", "MCG", "GLEN", "CURY.L", "MPC",
+    "ALB", "AMAT", "BCDRF", "BEP", "DPZ", "GLD", "KO", "LLY",
+    "MOAT", "MSFT", "NEE", "NVDA", "OPEN", "SLV", "XLV", "XYL"
+]
 
-# Example usage:
-tickers = ["AAPL", "MSFT", "GOOG", "AMZN"]  # Add the tickers you're interested in
-stock_data = get_stock_data(tickers)
+manual_esg_scores = {
+    "XOM": 36,
+    "BP": 38,
+    "SHEL": 41,
+    "BA": 40,
+    "MCG": 42,
+    "GLEN": 19,
+    "CURY.L": 45,
+    "MPC": 51,
+    "ALB": 61,
+    "AMAT": 43,
+    "BCDRF": 57,
+    "BEP": 57,
+    "DPZ": 23,
+    "GLD": None,
+    "KO": 42,
+    "LLY": 40,
+    "MOAT": None,
+    "MSFT": 51,
+    "NEE": 36,
+    "NVDA": 61,
+    "OPEN": None,
+    "SLV": None,
+    "XLV": None,
+    "XYL": 46
+}
 
-# Compute SIR JVP scores and sort by score
+# --------------------------
+# RUN
+# --------------------------
+stock_data = get_stock_data(tickers, manual_esg_scores)
 result_df = sir_jvp_absolute(stock_data)
-print(result_df[["ticker", "sir_jvp_score"]])  # Print tickers and their SIR JVP scores
+
+print(result_df[["ticker", "sir_jvp_score"]])
