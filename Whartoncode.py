@@ -116,35 +116,21 @@ def sir_jvp_absolute(df, weights=None):
 # TICKERS + MANUAL ESG SCORES (Inserted from your images)
 # --------------------------
 tickers = [
-    "XOM", "BP", "SHEL", "BA", "MCG", "GLEN", "CURY.L", "MPC",
-    "ALB", "AMAT", "BCDRF", "BEP", "DPZ", "GLD", "KO", "LLY",
-    "MOAT", "MSFT", "NEE", "NVDA", "OPEN", "SLV", "XLV", "XYL"
+    "BP", "BA", "MCG", "GLEN", "AMAT", "BCDRF", "BEP", "KO", "LLY", "MSFT", "NVDA", "XYL"
 ]
 
 manual_esg_scores = {
-    "XOM": 36,
     "BP": 38,
-    "SHEL": 41,
     "BA": 40,
     "MCG": 42,
     "GLEN": 19,
-    "CURY.L": 45,
-    "MPC": 51,
-    "ALB": 61,
     "AMAT": 43,
     "BCDRF": 57,
     "BEP": 57,
-    "DPZ": 23,
-    "GLD": None,
     "KO": 42,
     "LLY": 40,
-    "MOAT": None,
     "MSFT": 51,
-    "NEE": 36,
     "NVDA": 61,
-    "OPEN": None,
-    "SLV": None,
-    "XLV": None,
     "XYL": 46
 }
 
