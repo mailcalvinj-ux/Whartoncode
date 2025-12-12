@@ -4,9 +4,7 @@ import yfinance as yf
 
 DEFAULT_ESG_SCORE = 50   # fallback value if ESG not provided
 
-# --------------------------
 # Scoring functions
-# --------------------------
 def score_pe(pe):
     if pe < 10: return 1.0
     elif pe < 20: return 0.8
@@ -32,17 +30,13 @@ def score_dividend(dy):
     elif dy > 0.01: return 0.5
     else: return 0.3
 
-# --------------------------
-# Manual ESG input
-# --------------------------
+# Manual ESG input as API didn't include esg scores
 def get_manual_esg_score(ticker, esg_dict):
     """Return ESG score from user dictionary, fallback to default."""
     value = esg_dict.get(ticker.upper(), None)
     return DEFAULT_ESG_SCORE if value is None else value
 
-# --------------------------
 # Fetch stock fundamentals
-# --------------------------
 def get_stock_data(tickers, esg_dict=None):
     if esg_dict is None:
         esg_dict = {}
@@ -58,10 +52,10 @@ def get_stock_data(tickers, esg_dict=None):
         volatility     = info.get("beta", np.nan)
         dividend_yield = info.get("dividendYield", np.nan)
 
-        # Replace with manual ESG lookup
+    
         esg_score = get_manual_esg_score(ticker, esg_dict)
 
-        # Fallback defaults
+        # Fallback default values
         if np.isnan(pe_ratio): pe_ratio = 25
         if np.isnan(roe): roe = 0.10
         if np.isnan(volatility): volatility = 0.25
@@ -78,9 +72,8 @@ def get_stock_data(tickers, esg_dict=None):
     
     return pd.DataFrame(data)
 
-# --------------------------
-# Compute SIR-JVP score
-# --------------------------
+# Computing the SIRJVP scores
+
 def sir_jvp_absolute(df, weights=None):
     if weights is None:
         weights = {
@@ -111,10 +104,7 @@ def sir_jvp_absolute(df, weights=None):
 
     df["sir_jvp_score"] = scores
     return df.sort_values("sir_jvp_score", ascending=False)
-
-# --------------------------
-# TICKERS + MANUAL ESG SCORES (Inserted from your images)
-# --------------------------
+    
 tickers = [
     "BP", "BA", "MCG", "GLEN", "AMAT", "BCDRF", "BEP", "KO", "LLY", "MSFT", "NVDA", "XYL"
 ]
@@ -134,9 +124,6 @@ manual_esg_scores = {
     "XYL": 46
 }
 
-# --------------------------
-# RUN
-# --------------------------
 stock_data = get_stock_data(tickers, manual_esg_scores)
 result_df = sir_jvp_absolute(stock_data)
 
